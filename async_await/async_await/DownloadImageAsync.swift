@@ -8,9 +8,64 @@
 
 import SwiftUI
 
+class DownloadImageAsyncLoader {
+    let url = URL(string: "https://picsum.photos/250")!
+    
+    func downloadWithEscaping(completion: @escaping (_ image: UIImage?, _ error: Error?) -> Void) {
+        URLSession.shared.dataTask(with: url) { data, response, error in
+            guard
+                let data = data,
+                let image = UIImage(data: data),
+                let response = response as? HTTPURLResponse,
+                response.statusCode >= 200 && response.statusCode < 300
+            else {
+                completion(nil, error)
+                return
+            }
+            completion(image, nil)
+        }
+        .resume()
+    }
+}
+
+class DownloadImageAsyncViewModel: ObservableObject {
+    @Published var image: UIImage? = nil
+    let loader = DownloadImageAsyncLoader()
+    
+    func fetchImage() {
+        loader.downloadWithEscaping { [weak self] image, error in
+            if let image = image {
+                DispatchQueue.main.async {
+                    withAnimation {
+                        self?.image = image
+                    }
+                }
+            }
+        }
+    }
+}
+
 struct DownloadImageAsync: View {
+    
+    @StateObject private var viewModel = DownloadImageAsyncViewModel()
+    
     var body: some View {
-        Text(/*@START_MENU_TOKEN@*/"Hello, World!"/*@END_MENU_TOKEN@*/)
+        ZStack {
+            if let image = viewModel.image {
+                Image(uiImage: image)
+                    .resizable()
+                    .frame(width: 250, height: 250)
+            }
+            
+            Rectangle()
+                .frame(width: 250, height: 250)
+                .foregroundColor(.gray)
+                .opacity(viewModel.image == nil ? 1 : 0)
+                .zIndex(1)
+        }
+        .onAppear {
+            viewModel.fetchImage()
+        }
     }
 }
 
