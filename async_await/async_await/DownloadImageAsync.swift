@@ -36,9 +36,7 @@ class DownloadImageAsyncViewModel: ObservableObject {
         loader.downloadWithEscaping { [weak self] image, error in
             if let image = image {
                 DispatchQueue.main.async {
-                    withAnimation {
-                        self?.image = image
-                    }
+                    withAnimation { self?.image = image }
                 }
             }
         }
