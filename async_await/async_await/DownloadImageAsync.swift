@@ -7,32 +7,47 @@
 // Async Await을 활용해 이미지를 다운로드 해보자.
 
 import SwiftUI
+import Combine
 
 class DownloadImageAsyncLoader {
     let url = URL(string: "https://picsum.photos/250")!
     
+    func handleResponse(data: Data?, response: URLResponse?) -> UIImage? {
+        guard
+            let data = data,
+            let image = UIImage(data: data),
+            let response = response as? HTTPURLResponse,
+            response.statusCode >= 200 && response.statusCode < 300
+        else {
+            return nil
+        }
+        return image
+    }
+    
     func downloadWithEscaping(completion: @escaping (_ image: UIImage?, _ error: Error?) -> Void) {
-        URLSession.shared.dataTask(with: url) { data, response, error in
-            guard
-                let data = data,
-                let image = UIImage(data: data),
-                let response = response as? HTTPURLResponse,
-                response.statusCode >= 200 && response.statusCode < 300
-            else {
-                completion(nil, error)
-                return
-            }
-            completion(image, nil)
+        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+            let image = self?.handleResponse(data: data, response: response)
+            completion(image, error)
         }
         .resume()
+    }
+    
+    func downloadWithCombine() -> AnyPublisher<UIImage?, Error> {
+        URLSession.shared.dataTaskPublisher(for: url)
+            .map(handleResponse)
+            .mapError({ $0 })
+            .eraseToAnyPublisher()
     }
 }
 
 class DownloadImageAsyncViewModel: ObservableObject {
     @Published var image: UIImage? = nil
     let loader = DownloadImageAsyncLoader()
+    var cancellables = Set<AnyCancellable>()
     
     func fetchImage() {
+        
+        /* @escaping code...
         loader.downloadWithEscaping { [weak self] image, error in
             if let image = image {
                 DispatchQueue.main.async {
@@ -40,6 +55,16 @@ class DownloadImageAsyncViewModel: ObservableObject {
                 }
             }
         }
+         */
+        
+        loader.downloadWithCombine()
+            .receive(on: DispatchQueue.main)
+            .sink { _ in
+                
+            } receiveValue: { [weak self] image in
+                withAnimation { self?.image = image }
+            }
+            .store(in: &cancellables)
     }
 }
 
