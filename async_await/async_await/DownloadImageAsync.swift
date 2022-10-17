@@ -77,8 +77,8 @@ class DownloadImageAsyncViewModel: ObservableObject {
             .store(in: &cancellables)
          */
         
-        // DispatchQueue.main 과 동일하게 다음 run loop 를 기다리지 않고 비동기적으로 처리한다.
         let image = try? await loader.downloadWithAsync()
+        // DispatchQueue.main 과 동일하게 다음 run loop 를 기다리지 않고 비동기적으로 처리한다.
         await MainActor.run {
             withAnimation { self.image = image }
         }
